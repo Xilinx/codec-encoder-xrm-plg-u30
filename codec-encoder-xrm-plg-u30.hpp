@@ -1,7 +1,7 @@
-/*       
+/*
  * Copyright (C) 2019, Xilinx Inc - All rights reserved
- * Xilinx Resource Manger U30 Encoder Plugin 
- *                                    
+ * Xilinx Resource Manger U30 Encoder Plugin
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"). You may
  * not use this file except in compliance with the License. A copy of the
  * License is located at
@@ -11,9 +11,9 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations 
+ * License for the specific language governing permissions and limitations
  * under the License.
- */        
+ */
 #ifndef _CODEC_ENCODER_XRM_PLG_U30_HPP_
 #define _CODEC_ENCODER_XRM_PLG_U30_HPP_
 
@@ -38,7 +38,7 @@
 #define MAX_CH_SIZE 4096
 #define MAX_OUT_ELEMENTS 64
 #define U30_ENC_MAXCAPACITY (1920*1080*60*4)
-#define U30_LA_MAXCAPACITY (1920*1080*60*2)
+#define U30_LA_MAXCAPACITY (1920*1080*60*4)
 
 namespace pt = boost::property_tree;
 using namespace std;
