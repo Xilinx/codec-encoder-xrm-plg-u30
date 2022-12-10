@@ -1,7 +1,7 @@
-/*       
+/*
  * Copyright (C) 2019, Xilinx Inc - All rights reserved
- * Xilinx Resource Manger U30 Encoder Plugin 
- *                                    
+ * Xilinx Resource Manager U30 Encoder Plugin
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"). You may
  * not use this file except in compliance with the License. A copy of the
  * License is located at
@@ -11,9 +11,9 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations 
+ * License for the specific language governing permissions and limitations
  * under the License.
- */        
+ */
 #include "codec-encoder-xrm-plg-u30.hpp"
 
 /*------------------------------------------------------------------------------------------------------------------------------------------
@@ -37,15 +37,15 @@ static int _populate_enc_data( const char* input, std::vector<ResourceData*> &m_
       auto pr_ptree = job_tree.get_child("request.parameters");
       auto paramVal = new ParamsData;
 
-      if (pr_ptree.not_found() != pr_ptree.find("job-count")) 
-         paramVal->job_count = pr_ptree.get<int32_t>("job-count");           
+      if (pr_ptree.not_found() != pr_ptree.find("job-count"))
+         paramVal->job_count = pr_ptree.get<int32_t>("job-count");
       else
-         paramVal->job_count = -1;      
+         paramVal->job_count = -1;
 
       m_params.push_back(paramVal);
 
       // parse resources
-      if ( pr_ptree.find(child_resource) != pr_ptree.not_found()) 
+      if ( pr_ptree.find(child_resource) != pr_ptree.not_found())
       {
          for (auto it1 : pr_ptree.get_child(child_resource))
          {
@@ -62,7 +62,12 @@ static int _populate_enc_data( const char* input, std::vector<ResourceData*> &m_
               resource->in_res.width = res_ptree.get<int32_t>("resolution.input.width");
               resource->in_res.height = res_ptree.get<int32_t>("resolution.input.height");
               resource->in_res.frame_rate.numerator = res_ptree.get<int32_t>("resolution.input.frame-rate.num");
-              resource->in_res.frame_rate.denominator = res_ptree.get<int32_t>("resolution.input.frame-rate.den");      
+              resource->in_res.frame_rate.denominator = res_ptree.get<int32_t>("resolution.input.frame-rate.den");
+              if(resource->in_res.frame_rate.denominator == 0)
+              {
+                syslog(LOG_WARNING, "Frame rate denominator cannot be 0. Using 1!");
+                resource->in_res.frame_rate.denominator = 1;
+              }
               if (resource->function == "ENCODER")
               {
                  auto it_la = res_ptree.find("lookahead-load");
@@ -72,8 +77,8 @@ static int _populate_enc_data( const char* input, std::vector<ResourceData*> &m_
                     resource->lookahead_load = 0;
               }
               m_resources.push_back(resource);
-         }  
-      } 
+         }
+      }
       else if (strcmp(child_resource, "additionalresources_1")==0)
          return 0;
     }
@@ -89,7 +94,7 @@ static int _populate_enc_data( const char* input, std::vector<ResourceData*> &m_
 static void _calc_enc_load_res( char* output, std::vector<ResourceData*> &m_resources, std::vector<ParamsData*> &m_params)
 {
    syslog(LOG_NOTICE, "%s(): \n", __func__);
-   uint32_t calc_enc_percentage[MAX_OUT_ELEMENTS] = {0}, calc_la_percentage[MAX_OUT_ELEMENTS] = {0}, idx=0; 
+   uint32_t calc_enc_percentage[MAX_OUT_ELEMENTS] = {0}, calc_la_percentage[MAX_OUT_ELEMENTS] = {0}, idx=0;
    uint32_t calc_enc_load = 0, calc_la_load = 0, global_calc_enc_load = 0, global_calc_la_load = 0;
    bool outstat;
    uint32_t rounding =0, frame_rate = 0;
@@ -107,8 +112,8 @@ static void _calc_enc_load_res( char* output, std::vector<ResourceData*> &m_reso
            rounding =res->in_res.frame_rate.denominator>>1;
            frame_rate = (uint32_t)((res->in_res.frame_rate.numerator+rounding)/res->in_res.frame_rate.denominator);
 
-           calc_enc_load =  (long double)XRM_MAX_CU_LOAD_GRANULARITY_1000000* res->in_res.width*  res->in_res.height * frame_rate/U30_ENC_MAXCAPACITY;                     
-           calc_la_load =  (long double)XRM_MAX_CU_LOAD_GRANULARITY_1000000* res->in_res.width*  res->in_res.height * frame_rate/U30_LA_MAXCAPACITY; 
+           calc_enc_load =  (long double)XRM_MAX_CU_LOAD_GRANULARITY_1000000* res->in_res.width*  res->in_res.height * frame_rate/U30_ENC_MAXCAPACITY;
+           calc_la_load =  (long double)XRM_MAX_CU_LOAD_GRANULARITY_1000000* res->in_res.width*  res->in_res.height * frame_rate/U30_LA_MAXCAPACITY;
 
            calc_enc_percentage[idx] = calc_enc_load;
            calc_la_percentage[idx] =  calc_la_load;
@@ -133,7 +138,7 @@ static void _calc_enc_load_res( char* output, std::vector<ResourceData*> &m_reso
 
    }
 
-   for (int p=0; p<(idx) ; p++)   
+   for (int p=0; p<(idx) ; p++)
    {
       calc_enc_aggregate += calc_enc_percentage[p];
       calc_la_aggregate += calc_la_percentage[p];
@@ -142,20 +147,20 @@ static void _calc_enc_load_res( char* output, std::vector<ResourceData*> &m_reso
 
    //global  job-count used for launcher to overwrite load
    for (const auto gparam : m_params)
-   {     
+   {
       global_job_cnt = gparam->job_count;
       syslog(LOG_INFO, "  Encoder global_job_cnt      = %d\n",  global_job_cnt);
    }
 
    if (global_job_cnt > 0)
    {
-      global_calc_enc_load            =  (long double)XRM_MAX_CU_LOAD_GRANULARITY_1000000/global_job_cnt;  
+      global_calc_enc_load            =  (long double)XRM_MAX_CU_LOAD_GRANULARITY_1000000/global_job_cnt;
 
       syslog(LOG_INFO, "  job_enc_calc_load    = %d\n", global_calc_enc_load);
 
       la_global_job_cnt = (global_job_cnt + 1) >> 1; // rounding done to allow odd number global_job_cnt
 
-      global_calc_la_load             =   (long double)XRM_MAX_CU_LOAD_GRANULARITY_1000000/la_global_job_cnt; 
+      global_calc_la_load             =   (long double)XRM_MAX_CU_LOAD_GRANULARITY_1000000/la_global_job_cnt;
 
       syslog(LOG_INFO, "  LA global_job_cnt      = %d\n", la_global_job_cnt);
       syslog(LOG_INFO, "  job_la_calc_load       = %d\n", global_calc_la_load);
@@ -163,44 +168,44 @@ static void _calc_enc_load_res( char* output, std::vector<ResourceData*> &m_reso
 
    //Explicit describe job parse option for lookahead load is to be removed
    parse_la_aggregate = 2 * parse_enc_aggregate;
-   
-   //Parsed job-count to be used if it limits channels to less than the calculated. 
+
+   //Parsed job-count to be used if it limits channels to less than the calculated.
    if ((global_calc_enc_load >= calc_enc_aggregate) && (global_calc_enc_load <= XRM_MAX_CU_LOAD_GRANULARITY_1000000))
-   {	   
+   {
       sprintf( temp1,"%d ",global_calc_enc_load);
       strcat(output,temp1);
-      sprintf( temp1,"%d ",idx); 
+      sprintf( temp1,"%d ",idx);
       strcat(output,temp1);
       if (global_calc_la_load > XRM_MAX_CU_LOAD_GRANULARITY_1000000)
-          global_calc_la_load = XRM_MAX_CU_LOAD_GRANULARITY_1000000; //exception for 4K case 	  
+          global_calc_la_load = XRM_MAX_CU_LOAD_GRANULARITY_1000000; //exception for 4K case
       sprintf(temp2,"%d ",global_calc_la_load);
-      strcat(output,temp2);	  
-   }	  
+      strcat(output,temp2);
+   }
    else
    {
       if ((parse_enc_aggregate > calc_enc_aggregate) && (parse_enc_aggregate <= XRM_MAX_CU_LOAD_GRANULARITY_1000000))
-      {		    
-         sprintf( temp1,"%d ",parse_enc_aggregate); 
+      {
+         sprintf( temp1,"%d ",parse_enc_aggregate);
          strcat(output,temp1);
-         sprintf( temp1,"%d ",idx); 
+         sprintf( temp1,"%d ",idx);
          strcat(output,temp1);
          if (parse_enc_aggregate > XRM_MAX_CU_LOAD_GRANULARITY_1000000)
-            parse_enc_aggregate = XRM_MAX_CU_LOAD_GRANULARITY_1000000; //exception for 4K case 
-		 
-         sprintf( temp2,"%d ",parse_la_aggregate); 
-         strcat(output,temp2);		 
+            parse_enc_aggregate = XRM_MAX_CU_LOAD_GRANULARITY_1000000; //exception for 4K case
+
+         sprintf( temp2,"%d ",parse_la_aggregate);
+         strcat(output,temp2);
       }
       else
-      {	   
-         sprintf( temp1,"%d ",calc_enc_aggregate);  
-         strcat(output,temp1);	
-         sprintf( temp1,"%d ",idx); 
-         strcat(output,temp1);	
+      {
+         sprintf( temp1,"%d ",calc_enc_aggregate);
+         strcat(output,temp1);
+         sprintf( temp1,"%d ",idx);
+         strcat(output,temp1);
          if (calc_la_aggregate > XRM_MAX_CU_LOAD_GRANULARITY_1000000)
-            calc_la_aggregate = XRM_MAX_CU_LOAD_GRANULARITY_1000000; //exception for 4K case 
+            calc_la_aggregate = XRM_MAX_CU_LOAD_GRANULARITY_1000000; //exception for 4K case
 
-         sprintf( temp2,"%d ",calc_la_aggregate); 
-         strcat(output,temp2);		 
+         sprintf( temp2,"%d ",calc_la_aggregate);
+         strcat(output,temp2);
       }
    }
 
@@ -218,7 +223,7 @@ static void _calc_enc_load_res( char* output, std::vector<ResourceData*> &m_reso
  * XRM API version check
  * ------------------------------------------------------------------------------------------------------------------------------------------*/
 int32_t xrmU30EncPlugin_api_version(void)
-{ 
+{
   syslog(LOG_NOTICE, "%s(): API version: %d\n", __func__, XRM_API_VERSION_1);
   return (XRM_API_VERSION_1);
 }
@@ -227,14 +232,14 @@ int32_t xrmU30EncPlugin_api_version(void)
  *
  * XRM Plugin ID check
  * ------------------------------------------------------------------------------------------------------------------------------------------*/
-int32_t xrmU30EncPlugin_get_plugin_id(void) 
+int32_t xrmU30EncPlugin_get_plugin_id(void)
 {
   syslog(LOG_NOTICE, "%s(): xrm plugin example id is %d\n", __func__, XRM_PLUGIN_U30_ENC_ID);
-  return (XRM_PLUGIN_U30_ENC_ID); 
+  return (XRM_PLUGIN_U30_ENC_ID);
 }
 
 /*------------------------------------------------------------------------------------------------------------------------------------------
- * 
+ *
  * XRM U30 encoder plugin for load calculation
  * Expected json format string in ResourceData structure format.
  * ------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -251,18 +256,18 @@ int32_t xrmU30EncPlugin_calcPercent(xrmPluginFuncParam* param)
    {
 
       if (nres==0)
-         outstat = _populate_enc_data( param->input, m_resources, m_params, "resources");   
+         outstat = _populate_enc_data( param->input, m_resources, m_params, "resources");
       else
-         outstat = _populate_enc_data( param->input, m_resources, m_params, "additionalresources_1");   
+         outstat = _populate_enc_data( param->input, m_resources, m_params, "additionalresources_1");
 
       if (outstat == -1)
       {
          syslog(LOG_NOTICE, "%s(): failure in parsing json input\n", __func__);
-         return XRM_ERROR;      
+         return XRM_ERROR;
       }
       else if (outstat ==0) //No additional resources given so don't add any to param output
-         return XRM_SUCCESS;    
-       
+         return XRM_SUCCESS;
+
       _calc_enc_load_res( param->output, m_resources, m_params);
 
       nres++;
